@@ -4,7 +4,8 @@ const express = require('express');
 const cors = require('cors');
 const postgresPool = require('./Config/postgre');
 const userDataCollector = require('./Middlewares/User data Collector/userDataCollector');
-
+const runUserDataCollector = require('./Middlewares/User data Collector/userDataCollector');
+const CheckProviderRouter = require('./Components/CheckProviders/checkProviderRouter');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -20,16 +21,17 @@ postgresPool.query('SELECT NOW()', (err, res) => {
     else console.log('PostgreSQL time:', res.rows[0]);
 });
 
-// (async () => {
-//     await userDataCollector();
-// })();
+(async () => {
+    await runUserDataCollector()
+})();
 
+app.use('/api/users', CheckProviderRouter);
 
 app.get('/', (req, res) => {
     res.send('API running with MongoDB & PostgreSQL 🚀');
 });
 
-// app.use('/api/users', userRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

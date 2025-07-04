@@ -1,4 +1,6 @@
+
 import React, { useState } from "react";
+import bcrypt from "bcryptjs";
 import {
     Box,
     Button,
@@ -21,10 +23,12 @@ import {
 import { styled } from "@mui/system";
 import { FcGoogle } from "react-icons/fc";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
-import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup, fetchSignInMethodsForEmail } from "firebase/auth";
+import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup, linkWithPopup } from "firebase/auth";
 import { auth } from "../../../firebase"; // Adjust the import path as necessary
 import { useNavigate } from "react-router-dom";
 import "./Login.css"
+import axios from "axios";
+import CONFIG from "../../../config-global";
 
 const StyledCard = styled(Card)(({ theme }) => ({
     maxWidth: 450,
@@ -46,7 +50,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
 const Login = () => {
     const navigate = useNavigate();
     const theme = useTheme();
-    const googleAuthProvider = new GoogleAuthProvider()
+    const ApiBaseURL = CONFIG.apiBaseUrl || "http://localhost:3000/api"; // Use the global config for API base URL
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -78,18 +82,6 @@ const Login = () => {
 
         setLoading(true);
         try {
-            const providers = await fetchSignInMethodsForEmail(auth, email.trim().toLowerCase())
-            console.log("Providers for test email:", providers);
-            // if (providers.includes('google.com') && !providers.includes('password')) {
-            //     // User registered only with Google
-            //     setSnackbar({
-            //         open: true,
-            //         message: "This email was registered with Google. Please continue with Google or set a password using Forgot Password.",
-            //         severity: "warning"
-            //     });
-            //     setLoading(false);
-            //     return; // stop login flow
-            // }
             const result = await signInWithEmailAndPassword(auth, email, password);
             if (result) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
@@ -118,9 +110,12 @@ const Login = () => {
 
     const handleGoogleLogin = async () => {
         try {
+            const googleAuthProvider = new GoogleAuthProvider();
+            googleAuthProvider.addScope('email');
+            googleAuthProvider.addScope('profile');
             signInWithPopup(auth, googleAuthProvider)
                 .then((result) => {
-
+                    console.log(result.user.email);
                     const credential = GoogleAuthProvider.credentialFromResult(result);
                     const token = credential.accessToken;
                     // The signed-in user info.
@@ -138,6 +133,7 @@ const Login = () => {
                         message: "Google login successful!",
                         severity: "success"
                     });
+
                     navigate("/home");
                 })
         }
@@ -150,6 +146,53 @@ const Login = () => {
             });
         }
     };
+
+    // const handleGoogleLogin = async () => {
+    //     try {
+    //         await signInWithPopup(auth, googleAuthProvider);
+    //         // success
+    //         setSnackbar({
+    //             open: true,
+    //             message: "Google login successful!",
+    //             severity: "success"
+    //         });
+    //         navigate("/home");
+    //     } catch (error) {
+    //         if (error.code === 'auth/account-exists-with-different-credential') {
+    //             const pendingCred = GoogleAuthProvider.credentialFromError(error);
+    //             const email = error.customData.email;
+    //             try {
+    //                 // Ask user to login with password
+    //                 const password = prompt(`An account already exists with email ${email}. Please enter your password to link Google:`);
+    //                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    //                 // Link Google to existing user
+    //                 await linkWithCredential(userCredential.user, pendingCred);
+    //                 console.log("✅ Successfully linked Google to existing account");
+    //                 setSnackbar({
+    //                     open: true,
+    //                     message: "Google account linked! You can now login both ways.",
+    //                     severity: "success"
+    //                 });
+    //                 navigate("/home");
+    //             } catch (linkError) {
+    //                 console.error("Error linking Google:", linkError);
+    //                 setSnackbar({
+    //                     open: true,
+    //                     message: `Failed to link Google account: ${linkError.message}`,
+    //                     severity: "error"
+    //                 });
+    //             }
+    //         } else {
+    //             console.error("Google login error:", error);
+    //             setSnackbar({
+    //                 open: true,
+    //                 message: "Google login failed. Please try again.",
+    //                 severity: "error"
+    //             });
+    //         }
+    //     }
+    // };
+
 
     const handlesignupRoute = () => {
         navigate("/signup");

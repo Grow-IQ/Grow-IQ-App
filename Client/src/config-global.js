@@ -1,11 +1,9 @@
-import App from './App';
-import packageJson from './package.json';
 
 const CONFIG = {
     appName: import.meta.env.VITE_APP_NAME || "GrowIQ",
     appVersion: import.meta.env.VITE_APP_VERSION || "0.0.0",
     nodeEnv: import.meta.env.VITE_NODE_ENV || "development",
-    apiBaseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
+    apiBaseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api",
     apiTimeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 10000,
     debugMode: import.meta.env.VITE_DEBUG_MODE === 'true',
     enableLogging: import.meta.env.VITE_ENABLE_LOGGING === 'true',

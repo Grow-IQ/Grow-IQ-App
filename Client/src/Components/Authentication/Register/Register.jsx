@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import bcrypt from "bcryptjs";
 import {
     Box,
     Card,
@@ -84,45 +85,121 @@ const RegistrationForm = () => {
     const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
     const provider = new GoogleAuthProvider();
 
-    const handleGoogleSignup = () => {
+    // const handleGoogleSignup = () => {
+    //     try {
+    //         signInWithPopup(auth, provider)
+    //             .then(async (result) => {
+    //                 const credential = GoogleAuthProvider.credentialFromResult(result);
+    //                 const token = credential.accessToken;
+    //                 const user = result.user;
+    //                 console.log("Google User:", user);
+
+    //                 await setDoc(doc(Authdb, "users", user.uid), {
+    //                     uid: user.uid,
+    //                     email: user.email,
+    //                     emailVerified: user.emailVerified,
+    //                     provider: user.providerData[0].providerId,
+    //                     displayName: user.displayName,
+    //                     photoURL: user.photoURL,
+    //                     createdAt: user.metadata.createdAt,              // timestamp in ms as string
+    //                     creationTime: user.metadata.creationTime,        // human-readable string
+    //                     lastLoginAt: user.metadata.lastLoginAt,          // timestamp in ms as string
+    //                     lastSignInTime: user.metadata.lastSignInTime     // human-readable string
+
+    //                 });
+    //                 setSnackbar({
+    //                     open: true,
+    //                     message: `Google Signup successful! Welcome ${user.displayName || user.email}`,
+    //                     severity: "success"
+    //                 });
+    //                 navigate("/home"); // Redirect to Home page after successful registration
+    //             })
+    //     }
+    //     catch (error) {
+    //         console.error("Google Signup error:", error);
+    //         setSnackbar({
+    //             open: true,
+    //             message: "Google Signup failed. Please try again.",
+    //             severity: "error"
+    //         });
+    //     }
+    // }
+
+    const handleGoogleSignup = async () => {
         try {
-            signInWithPopup(auth, provider)
-                .then(async (result) => {
-                    const credential = GoogleAuthProvider.credentialFromResult(result);
-                    const token = credential.accessToken;
-                    const user = result.user;
-                    console.log("Google User:", user);
+            // Create provider with explicit scopes
+            const provider = new GoogleAuthProvider();
+            provider.addScope('email');
+            provider.addScope('profile');
 
-                    await setDoc(doc(Authdb, "users", user.uid), {
-                        uid: user.uid,
-                        email: user.email,
-                        emailVerified: user.emailVerified,
-                        provider: user.providerData[0].providerId,
-                        displayName: user.displayName,
-                        photoURL: user.photoURL,
-                        createdAt: user.metadata.createdAt,              // timestamp in ms as string
-                        creationTime: user.metadata.creationTime,        // human-readable string
-                        lastLoginAt: user.metadata.lastLoginAt,          // timestamp in ms as string
-                        lastSignInTime: user.metadata.lastSignInTime     // human-readable string
+            // Force account selection
+            provider.setCustomParameters({
+                prompt: 'select_account'
+            });
 
-                    });
-                    setSnackbar({
-                        open: true,
-                        message: `Google Signup successful! Welcome ${user.displayName || user.email}`,
-                        severity: "success"
-                    });
-                    navigate("/home"); // Redirect to Home page after successful registration
-                })
-        }
-        catch (error) {
-            console.error("Google Signup error:", error);
+            console.log("🔍 Starting Google Sign-in...");
+
+            const result = await signInWithPopup(auth, provider);
+            const credential = GoogleAuthProvider.credentialFromResult(result);
+            const user = result.user;
+
+            console.log("Google User:", user);
+
+            // Get email from the most reliable source (providerData)
+            const userEmail = user.providerData[0]?.email || user.email;
+            const emailVerified = user.emailVerified;
+
+            console.log("✅ Email found:", userEmail);
+            console.log("✅ Email verified:", emailVerified);
+
+            if (!userEmail) {
+                console.error("❌ No email found from any source!");
+                setSnackbar({
+                    open: true,
+                    message: "Google account must have a verified email address.",
+                    severity: "error"
+                });
+                return;
+            }
+
+            // Clean document data - avoid undefined values
+            const userData = {
+                uid: user.uid,
+                email: userEmail,
+                emailVerified: emailVerified,
+                provider: user.providerData[0]?.providerId || 'google.com',
+                displayName: user.displayName || '',
+                photoURL: user.photoURL || '',
+                createdAt: user.metadata.createdAt || '',
+                creationTime: user.metadata.creationTime || '',
+                lastLoginAt: user.metadata.lastLoginAt || '',
+                lastSignInTime: user.metadata.lastSignInTime || ''
+            };
+
+            console.log("💾 Saving user data:", userData);
+
+            // Save to Firestore
+            await setDoc(doc(Authdb, "users", user.uid), userData);
+
             setSnackbar({
                 open: true,
-                message: "Google Signup failed. Please try again.",
+                message: `Google Signup successful! Welcome ${user.displayName || userEmail}`,
+                severity: "success"
+            });
+
+            console.log("✅ User successfully saved to Firestore");
+            navigate("/home");
+
+        } catch (error) {
+            console.error("❌ Google Signup error:", error);
+
+            setSnackbar({
+                open: true,
+                message: `Google Signup failed: ${error.message}`,
                 severity: "error"
             });
         }
-    }
+    };
 
 
     const validateField = (name, value) => {
@@ -234,6 +311,7 @@ const RegistrationForm = () => {
                 emailVerified: user.emailVerified,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
+                password: bcrypt.hashSync(formData.password, 13),
                 phone: formData.phone,
                 countryCode: formData.countryCode,
                 createdAt: user.metadata.createdAt,               // timestamp in ms as string
